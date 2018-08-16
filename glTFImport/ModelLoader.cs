@@ -5,6 +5,7 @@ using Rhino.DocObjects;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 
@@ -19,9 +20,19 @@ namespace glTFImport
 
             if (model != null)
             {
+                // dictionary with deserialized buffer data
                 var bufferData = new Dictionary<int, byte[]>();
+
+                // accessorData contains a dictionary to the buffer data meant to be accessed by an accessor via a bufferView
                 var accessorData = new Dictionary<int, dynamic>();
-                var materials = new Dictionary<int, int>();
+
+                // material data contains a dictionary with the material index and the Rhino material ID
+                var materialData = new Dictionary<int, int>();
+
+                // mesh data
+                var meshData = new Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>>();
+
+                var nodeXformData = new Dictionary<int, Transform>();
 
                 var dir = Path.GetDirectoryName(filename);
 
@@ -139,7 +150,7 @@ namespace glTFImport
 
                         rhinoMat.Name = mat.Name;
 
-                        materials.Add(i, doc.Materials.Add(rhinoMat));
+                        materialData.Add(i, doc.Materials.Add(rhinoMat));
 
                     }
                 }
@@ -245,10 +256,15 @@ namespace glTFImport
 
                 #region Process Meshes
 
-                foreach (var m in model.Meshes)
+                //foreach (var m in model.Meshes)
+                for(int j = 0; j < model.Meshes.Length; j++)
                 {
 
+                    var m = model.Meshes[j];
+
                     var groupId = doc.Groups.Add(m.Name);
+
+                    var meshes = new List<Rhino.Geometry.Mesh>();
 
                     foreach (var mp in m.Primitives)
                     {
@@ -348,7 +364,7 @@ namespace glTFImport
                         };
 
                         if (mp.Material != null)
-                            oa.MaterialIndex = materials[mp.Material.Value];
+                            oa.MaterialIndex = materialData[mp.Material.Value];
 
                         meshPart.Compact();
 
@@ -381,32 +397,107 @@ namespace glTFImport
                         }
 #endif
 
-                        var guid = doc.Objects.AddMesh(meshPart, oa);
-                        doc.Groups.AddToGroup(groupId, guid);
+                        // var guid = doc.Objects.AddMesh(meshPart, oa);
+                        // doc.Groups.AddToGroup(groupId, guid);
+
+                        meshes.Add(meshPart);
+                        
                     }
 
+                    meshData.Add(j, meshes);
                 }
 
                 #endregion
 
+                #region Process Nodes Transforms
+
+                for (int i = 0; i < model.Nodes.Length; i++)
+                    nodeXformData.Add(i , ProcessNode(model.Nodes[i]));
+
+                //for (int i = 0; i < model.Nodes.Length; i++)
+                //TraverseNode(model, model.Nodes[i], Transform.Unset, meshData);
+
+                TraverseNode(model, model.Nodes[model.Scenes[model.Scene.Value].Nodes[0]], Transform.Unset, meshData);
+
+                #endregion
+
+                #region Add to doc
+
+                foreach(var meshes in meshData.Values)
+                {
+                    var group = doc.Groups.Add();
+                    foreach( var m in meshes)
+                    {
+                        var guid = doc.Objects.AddMesh(m);
+                        doc.Groups.AddToGroup(group, guid);
+                    }
+
+                    
+                }
+
+
+                #endregion
+
+
             }
+        }
+
+        
+        public static Transform TraverseNode(Gltf model, Node node, Transform parentXform, Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>> meshDict)
+        {
+            //process Node
+
+            var xform = ProcessNode(node);
+
+            //var otherx = Transform.Identity;
+
+            Debug.WriteLine("Is Identity?" + xform.IsIdentity.ToString(), "glTF Import");
+            
+            if (parentXform !=Transform.Unset) xform *= parentXform;
+            ProcessNodeElements(model,node, meshDict, xform);
+
+            //process children
+            if (node.Children != null)
+                foreach (var n in node.Children)
+                    TraverseNode(model, model.Nodes[n], xform, meshDict);
+
+            return xform;
+        }
+
+        public static void ProcessNodeElements(Gltf model, Node node, Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>> meshDict, Transform xform)
+        {
+            if (node.Mesh.HasValue)
+                foreach (var m in meshDict[node.Mesh.Value])
+                {
+                    m.Transform(xform);
+                }
+        }
+
+        public static Transform ProcessNode(Node n)
+        {
+            
+            var translation = Transform.Translation(n.Translation[0], n.Translation[1], n.Translation[2]);
+            var rotationQ = new Quaternion(n.Rotation[0], n.Rotation[1], n.Rotation[2], n.Rotation[3]);
+            var axis = Vector3d.Unset;
+            rotationQ.GetRotation(out double angle, out axis);
+            var rotation = Transform.Rotation(angle, axis, Point3d.Origin);
+            var scale = Transform.Scale(Plane.WorldXY, n.Scale[0], n.Scale[1], n.Scale[2]);
+    
+            var xform = Transform.Identity;
+            xform *= translation;
+            xform *= rotation;
+            xform *= scale;
+
+            return xform;
         }
 
         public static dynamic AccessBuffer(Accessor.TypeEnum accessorType, int count, Accessor.ComponentTypeEnum componentType, int stride, byte[] arr)
         {
             dynamic result = null;
 
-            //var mult = GetTypeMultiplier(accessorType);
-            //var componentMult = GetComponentTypeMultiplier(componentType);
-
-            //TODO: implement byteStride
-            
-
-            //count *= mult;
-
-            var elementCount = count; //how many times do we need to do this?
-            var componentCount = GetTypeMultiplier(accessorType); ; //each time we do this, how many times do I need to read the buffer?
-            var byteCount = GetComponentTypeMultiplier(componentType); //how many bytes is each component from ComponentTypeEnum
+            var elementCount = count;                                   //how many times do we need to do this?
+            var componentCount = GetTypeMultiplier(accessorType); ;     //each time we do this, how many times do I need to read the buffer?
+            var byteCount = GetComponentTypeMultiplier(componentType);  //how many bytes is each component from ComponentTypeEnum
             var elementBytes = componentCount * byteCount;
 
             var strideDiff = stride > 0 ? stride - elementBytes : 0;
@@ -414,7 +505,7 @@ namespace glTFImport
             using (var memoryStream = new MemoryStream(arr))
             using (var reader = new BinaryReader(memoryStream))
             {
-
+                // TODO: clean this up
                 switch (componentType)
                 {
                     case glTFLoader.Schema.Accessor.ComponentTypeEnum.BYTE:
