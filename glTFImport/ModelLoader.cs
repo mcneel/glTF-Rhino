@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 
 namespace glTFImport
 {
@@ -30,7 +31,7 @@ namespace glTFImport
                 var materialData = new Dictionary<int, int>();
 
                 // mesh data
-                var meshData = new Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>>();
+                var meshData = new Dictionary<int, List<Rhino.Geometry.Mesh>>();
 
                 var nodeXformData = new Dictionary<int, Transform>();
 
@@ -417,23 +418,39 @@ namespace glTFImport
                 //for (int i = 0; i < model.Nodes.Length; i++)
                 //TraverseNode(model, model.Nodes[i], Transform.Unset, meshData);
 
-                TraverseNode(model, model.Nodes[model.Scenes[model.Scene.Value].Nodes[0]], Transform.Unset, meshData);
+                TraverseNode(model, model.Nodes[model.Scenes[model.Scene.Value].Nodes[0]], Transform.Identity, meshData);
 
                 #endregion
-
+              
                 #region Add to doc
 
-                foreach(var meshes in meshData.Values)
+                for(int i = 0; i < model.Nodes.Length; i++)
                 {
-                    var group = doc.Groups.Add();
-                    foreach( var m in meshes)
+                    var n = model.Nodes[i];
+                    if (n.Mesh.HasValue)
                     {
-                        var guid = doc.Objects.AddMesh(m);
-                        doc.Groups.AddToGroup(group, guid);
-                    }
+                        //should be doing the orientation here
+                        for (int j = 0; j < meshData.Values.ElementAt(i).Count ; j++)
+                        {
+                            var meshes = meshData.Values.ElementAt(i);
+                            var group = doc.Groups.Add(n.Name);
+                            foreach (var m in meshes)
+                            {
+                                var oa = new ObjectAttributes
+                                {
+                                    Name = model.Meshes[j].Name
+                                };
+                                var guid = doc.Objects.AddMesh(m, oa);
+                                doc.Groups.AddToGroup(group, guid);
+                            }
 
-                    
+
+                        }
+
+                    }
                 }
+
+                
 
 
                 #endregion
@@ -443,18 +460,17 @@ namespace glTFImport
         }
 
         
-        public static Transform TraverseNode(Gltf model, Node node, Transform parentXform, Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>> meshDict)
+        public static Transform TraverseNode(Gltf model, Node node, Transform parentXform, Dictionary<int, List<Rhino.Geometry.Mesh>> meshDict)
         {
             //process Node
 
             var xform = ProcessNode(node);
 
-            //var otherx = Transform.Identity;
+            //if (parentXform != Transform.Unset)
+                //xform *= parentXform;
+                //xform = Transform.Multiply(xform, parentXform);
 
-            Debug.WriteLine("Is Identity?" + xform.IsIdentity.ToString(), "glTF Import");
-            
-            if (parentXform !=Transform.Unset) xform *= parentXform;
-            ProcessNodeElements(model,node, meshDict, xform);
+            ProcessNodeElements(model,node, meshDict, xform, parentXform);
 
             //process children
             if (node.Children != null)
@@ -464,29 +480,49 @@ namespace glTFImport
             return xform;
         }
 
-        public static void ProcessNodeElements(Gltf model, Node node, Dictionary<int, IEnumerable<Rhino.Geometry.Mesh>> meshDict, Transform xform)
+        public static void ProcessNodeElements(Gltf model, Node node, Dictionary<int, List<Rhino.Geometry.Mesh>> meshDict, Transform xform, Transform parentXform)
         {
             if (node.Mesh.HasValue)
                 foreach (var m in meshDict[node.Mesh.Value])
                 {
                     m.Transform(xform);
+                    if (!parentXform.IsIdentity)
+                        m.Transform(parentXform);
                 }
         }
 
         public static Transform ProcessNode(Node n)
         {
-            
+            var xform = Transform.Identity;
+            xform.M00 = n.Matrix[0]; xform.M10 = n.Matrix[4]; xform.M20 = n.Matrix[8];    xform.M30 = n.Matrix[12];
+            xform.M01 = n.Matrix[1]; xform.M11 = n.Matrix[5]; xform.M21 = n.Matrix[9];    xform.M31 = n.Matrix[13];
+            xform.M02 = n.Matrix[2]; xform.M12 = n.Matrix[6]; xform.M22 = n.Matrix[10];   xform.M32 = n.Matrix[14];
+            xform.M03 = n.Matrix[3]; xform.M13 = n.Matrix[7]; xform.M23 = n.Matrix[11];   xform.M33 = n.Matrix[15];
+
             var translation = Transform.Translation(n.Translation[0], n.Translation[1], n.Translation[2]);
-            var rotationQ = new Quaternion(n.Rotation[0], n.Rotation[1], n.Rotation[2], n.Rotation[3]);
+            var rotationQ = Quaternion.Identity;//;new Quaternion(n.Rotation[3], n.Rotation[0], n.Rotation[1], n.Rotation[2]);
+            rotationQ.A = n.Rotation[3];
+            rotationQ.B = n.Rotation[0];
+            rotationQ.C = n.Rotation[1];
+            rotationQ.D = n.Rotation[2];
+
             var axis = Vector3d.Unset;
-            rotationQ.GetRotation(out double angle, out axis);
+            rotationQ.Conjugate.GetRotation(out double angle, out axis);
+            //axis.Reverse();
             var rotation = Transform.Rotation(angle, axis, Point3d.Origin);
             var scale = Transform.Scale(Plane.WorldXY, n.Scale[0], n.Scale[1], n.Scale[2]);
-    
-            var xform = Transform.Identity;
-            xform *= translation;
-            xform *= rotation;
-            xform *= scale;
+            
+            if (!(n.Translation[0] == 0 && n.Translation[1] == 0 && n.Translation[2] == 0))
+                xform *= translation;
+                //xform = Transform.Multiply(xform, translation);
+
+            if (!(n.Rotation[0] == 0 && n.Rotation[1] == 0 && n.Rotation[2] == 0 && n.Rotation[3] == 1))
+                xform *= rotation;
+                //xform = Transform.Multiply(xform, rotation);
+
+            if (!(n.Scale[0] == 1 && n.Scale[1] == 1 && n.Scale[2] == 1))
+                xform *= scale;
+                //xform = Transform.Multiply(xform, scale);
 
             return xform;
         }
