@@ -450,11 +450,7 @@ namespace glTFImport
                     }
                 }
 
-                
-
-
                 #endregion
-
 
             }
         }
