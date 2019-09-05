@@ -28,7 +28,7 @@ This plugin has several limitations, some which will be fixed with time, others 
 This plugin is in active development.
 Currently, this plugin can import the majority of models provided in the [KhronosGroup Sample Models Repository](https://github.com/KhronosGroup/glTF-Sample-Models). There are three or four models that do not import correctly. Hopefully this can be fixed with time.
 
-The plugin has been tested on Rhino for Windows 6 sr8 and is developed in Visual Studio 2018.
+The plugin has been tested on Rhino for Windows 6 sr8 and is developed in Visual Studio 2017.
 
 ## Contributing
 
