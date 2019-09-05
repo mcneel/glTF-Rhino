@@ -51,7 +51,7 @@ namespace glTFExport
 
             // handle selected objects / hidden objects, etc
 
-            string ModelExporter.Serialize(doc); //rhino3dm to glTF
+            string gltf = ModelExporter.Serialize(doc); //rhino3dm to glTF
 
             write_success = true;
 
