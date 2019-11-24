@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2000
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "glTFImport", "glTFImport.csproj", "{D5C378A1-393F-4C39-B641-02A54F094CFA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "glTFImport.Mac", "glTFImport.Mac.csproj", "{D5C378A1-393F-4C39-B641-02A54F094CFA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Project Docs", "Project Docs", "{AADC0CB6-457D-4188-9B26-5840BFDD983E}"
 	ProjectSection(SolutionItems) = preProject

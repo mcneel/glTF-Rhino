@@ -37,17 +37,14 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="RhinoCommon">
-      <HintPath>C:\Program Files\Rhino 6\System\rhinocommon.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Eto">
-      <HintPath>C:\Program Files\Rhino 6\System\Eto.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\..\..\..\..\Applications\Rhinoceros.app\Contents\Frameworks\RhCore.framework\Versions\A\Resources\Eto.dll</HintPath>
     </Reference>
     <Reference Include="Rhino.UI">
-      <HintPath>C:\Program Files\Rhino 6\System\Rhino.UI.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\..\..\..\..\Applications\Rhinoceros.app\Contents\Frameworks\RhCore.framework\Versions\A\Resources\Rhino.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="RhinoCommon">
+      <HintPath>..\..\..\..\..\..\..\Applications\Rhinoceros.app\Contents\Frameworks\RhCore.framework\Versions\A\Resources\RhinoCommon.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -73,14 +70,14 @@
   </Target>
   -->
   <PropertyGroup>
-    <PostBuildEvent>Copy "$(TargetPath)" "$(TargetDir)$(ProjectName).rhp"
-Erase "$(TargetPath)"</PostBuildEvent>
+    <PostBuildEvent>cp "$(TargetPath)" "$(TargetDir)$(ProjectName).rhp"
+rm "$(TargetPath)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <FallbackCulture>en-US</FallbackCulture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartProgram>C:\Program Files\Rhino 6\System\Rhino.exe</StartProgram>
+    <StartProgram>/Applications/Rhinoceros.app</StartProgram>
     <StartArguments>
     </StartArguments>
     <StartAction>Program</StartAction>
