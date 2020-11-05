@@ -120,6 +120,8 @@ namespace glTFImport
 
                 #region Process Materials
 
+                // TODO: Update for Rhino 7 PBR Materials
+
                 if (model.Materials != null)
                 {
 
@@ -151,7 +153,11 @@ namespace glTFImport
 
                         rhinoMat.Name = mat.Name;
 
-                        materialData.Add(i, doc.Materials.Add(rhinoMat));
+                        var id = doc.Materials.Add(rhinoMat);
+                        var rMat = Rhino.Render.RenderMaterial.CreateBasicMaterial(rhinoMat, doc);
+                        doc.RenderMaterials.Add(rMat);
+
+                        materialData.Add(i, id);
 
                     }
                 }
@@ -356,16 +362,16 @@ namespace glTFImport
                         }
 
                         //meshPart.Weld(Math.PI);
-
+                        // TODO: CLEANUP
                         var oa = new ObjectAttributes
                         {
                             MaterialSource = ObjectMaterialSource.MaterialFromObject,
-                            //MaterialIndex = (mp.Material!=null) ? materials[mp.Material.Value] : 0,
+                            MaterialIndex = (mp.Material!=null) ? materialData[mp.Material.Value] : 0,
                             Name = m.Name
                         };
 
-                        if (mp.Material != null)
-                            oa.MaterialIndex = materialData[mp.Material.Value];
+                        //if (mp.Material != null)
+                            //oa.MaterialIndex = materialData[mp.Material.Value];
 
                         meshPart.Compact();
 
@@ -435,6 +441,7 @@ namespace glTFImport
                             var group = doc.Groups.Add(n.Name);
                             foreach (var m in meshes)
                             {
+                                // TODO: Assign material
                                 var oa = new ObjectAttributes
                                 {
                                     Name = model.Meshes[j].Name
