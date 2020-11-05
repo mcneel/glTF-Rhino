@@ -120,6 +120,8 @@ namespace glTFImport
 
                 #region Process Materials
 
+                // TODO: Update for Rhino 7 PBR Materials
+
                 if (model.Materials != null)
                 {
 
@@ -151,7 +153,11 @@ namespace glTFImport
 
                         rhinoMat.Name = mat.Name;
 
-                        materialData.Add(i, doc.Materials.Add(rhinoMat));
+                        var id = doc.Materials.Add(rhinoMat);
+                        var rMat = Rhino.Render.RenderMaterial.CreateBasicMaterial(rhinoMat, doc);
+                        doc.RenderMaterials.Add(rMat);
+
+                        materialData.Add(i, id);
 
                     }
                 }
@@ -350,22 +356,22 @@ namespace glTFImport
                             var faces = new List<MeshFace>();
 
                             for (int i = 0; i <= faceIds.Count - 3; i = i + 3)
-                                faces.Add(new MeshFace(faceIds[i], faceIds[i + 1], faceIds[i + 2]));
+                                faces.Add(new MeshFace( (int)faceIds[i], (int)faceIds[i + 1], (int)faceIds[i + 2]));
 
                             meshPart.Faces.AddFaces(faces);
                         }
 
                         //meshPart.Weld(Math.PI);
-
+                        // TODO: CLEANUP
                         var oa = new ObjectAttributes
                         {
                             MaterialSource = ObjectMaterialSource.MaterialFromObject,
-                            //MaterialIndex = (mp.Material!=null) ? materials[mp.Material.Value] : 0,
+                            MaterialIndex = (mp.Material!=null) ? materialData[mp.Material.Value] : 0,
                             Name = m.Name
                         };
 
-                        if (mp.Material != null)
-                            oa.MaterialIndex = materialData[mp.Material.Value];
+                        //if (mp.Material != null)
+                            //oa.MaterialIndex = materialData[mp.Material.Value];
 
                         meshPart.Compact();
 
@@ -429,13 +435,13 @@ namespace glTFImport
                     var n = model.Nodes[i];
                     if (n.Mesh.HasValue)
                     {
-                        //should be doing the orientation here
-                        for (int j = 0; j < meshData.Values.ElementAt(i).Count ; j++)
+                        int j = 0;
+                        foreach (var meshes in meshData.Values) 
                         {
-                            var meshes = meshData.Values.ElementAt(i);
                             var group = doc.Groups.Add(n.Name);
                             foreach (var m in meshes)
                             {
+                                // TODO: Assign material
                                 var oa = new ObjectAttributes
                                 {
                                     Name = model.Meshes[j].Name
@@ -443,10 +449,8 @@ namespace glTFImport
                                 var guid = doc.Objects.AddMesh(m, oa);
                                 doc.Groups.AddToGroup(group, guid);
                             }
-
-
+                            j++;
                         }
-
                     }
                 }
 
